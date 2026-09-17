@@ -1,6 +1,6 @@
 # AI Usage
 
-I used ChatGPT (OpenAI) as a coding support tool while completing this assignment. I reviewed the suggested code and verified the resulting outputs.
+I used ChatGPT (OpenAI, GPT-5.6 Sol model) as a coding support tool while completing this assignment. I reviewed the suggested code and verified the resulting outputs.
 
 ## Python Environment and Survival Analysis
 
