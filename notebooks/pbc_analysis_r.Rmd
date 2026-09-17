@@ -1,0 +1,222 @@
+---
+title: "Mayo Clinic PBC Trial Survival Analysis"
+author: "Jiahe Tian"
+date: "2026-09-16"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE
+)
+```
+
+
+## Research Question
+
+Among randomized participants in the Mayo Clinic PBC trial, was there evidence of a difference in survival between the D-penicillamine and placebo treatment groups?  
+
+
+## Data Source
+
+This analysis uses data from the Mayo Clinic randomized trial in primary biliary cirrhosis (PBC), available through the `survival` R package and the Rdatasets repository.  
+
+The dataset includes baseline clinical and laboratory measurements, treatment assignment, follow-up time, and survival status. The randomized portion of the study compared D-penicillamine with placebo.  
+
+For this analysis, we restrict the study population to randomized participants with known treatment assignments.  
+
+
+
+## Setup
+
+```{r}
+# Install the required package if it is not already available
+if (!requireNamespace("survival", quietly = TRUE)) {
+  install.packages(
+    "survival",
+    repos = "https://cloud.r-project.org"
+  )
+}
+
+library(survival)
+```
+
+
+## Load Data
+
+```{r}
+url <- "https://vincentarelbundock.github.io/Rdatasets/csv/survival/pbc.csv"
+
+pbc <- read.csv(url)
+
+head(pbc)
+```
+
+## Data Inspection
+
+Before preparing the analysis dataset, we inspect the dimensions, variables, treatment assignments, and outcome information in the original PBC dataset.
+
+```{r}
+dim(pbc)
+
+names(pbc)
+
+table(pbc$trt, useNA = "ifany")
+
+table(pbc$status)
+```
+
+## Outcome Definition
+
+The outcome of interest is time to death. Follow-up time (`time`) is measured in days.  
+
+Death (`status = 2`) is treated as the event of interest. Participants who were alive at the end of follow-up (`status = 0`) are censored. Participants who underwent liver transplantation (`status = 1`) are censored at the time of transplantation.  
+
+Therefore, a binary event indicator is created as:  
+
+- `event = 1`: death  
+- `event = 0`: censored or liver transplantation  
+
+## Data Preparation
+
+The analysis is restricted to participants with a randomized treatment assignment. Treatment is relabeled for readability, and a binary death indicator is created for the survival analysis.
+
+```{r}
+pbc_randomized <- pbc[!is.na(pbc$trt), ]
+
+pbc_randomized$treatment <- ifelse(
+  pbc_randomized$trt == 1,
+  "D-penicillamine",
+  "Placebo"
+)
+
+pbc_randomized$event <- ifelse(
+  pbc_randomized$status == 2,
+  1,
+  0
+)
+```
+
+
+### Data Checks
+
+```{r}
+dim(pbc_randomized)
+
+table(pbc_randomized$treatment)
+
+# check derived outcome variable
+table(
+  Status = pbc_randomized$status,
+  Event = pbc_randomized$event
+)
+```
+
+```{r}
+# check if there is any missing value
+colSums(
+  is.na(
+    pbc_randomized[, c("time", "event", "treatment")]
+  )
+)
+```
+
+
+
+## Descriptive Summary
+
+We first summarize the number of randomized participants and deaths by treatment group before comparing the survival distributions.
+
+```{r}
+table(pbc_randomized$treatment)
+
+aggregate(
+  event ~ treatment,
+  data = pbc_randomized,
+  FUN = sum
+)
+```
+
+
+## Kaplan–Meier Survival Analysis
+
+Kaplan–Meier survival curves were estimated separately for the D-penicillamine and placebo groups. Death was treated as the event of interest, while participants who underwent liver transplantation or remained alive at the end of follow-up were censored.
+
+```{r}
+surv_object <- Surv(
+  time = pbc_randomized$time,
+  event = pbc_randomized$event
+)
+
+km_fit <- survfit(
+  surv_object ~ treatment,
+  data = pbc_randomized
+)
+
+km_fit
+```
+
+
+```{r}
+plot(
+  km_fit,
+  xlab = "Follow-up Time (Days)",
+  ylab = "Survival Probability",
+  main = "Kaplan-Meier Survival Curves by Treatment Group",
+  conf.int = FALSE,
+  mark.time = FALSE,
+  col = c("steelblue", "darkorange")
+)
+
+legend(
+  "topright",
+  legend = c("D-penicillamine", "Placebo"),
+  lty = 1,
+  col = c("steelblue", "darkorange")
+)
+```
+
+*AI usage: I used ChatGPT for guidance on customizing the R Kaplan–Meier plot to make its appearance comparable to the Python version, particularly for matching the plot colors.*
+
+
+## Log-Rank Test
+
+A log-rank test was used to formally compare the survival distributions between the D-penicillamine and placebo groups.
+
+```{r}
+logrank_result <- survdiff(
+  surv_object ~ treatment,
+  data = pbc_randomized
+)
+
+logrank_result
+
+p_value <- 1 - pchisq(
+  logrank_result$chisq,
+  df = 1
+)
+
+round(p_value, 3)
+```
+
+
+## Interpretation
+
+The Kaplan–Meier curves for the D-penicillamine and placebo groups were generally similar over the follow-up period. The curves crossed at several points, and neither treatment group showed a consistently higher survival probability than the other.  
+
+Using a significance level of $\alpha$ = 0.05, the log-rank test did not show a statistically significant difference in the survival distributions between the two treatment groups (p = 0.75). Since the p-value was greater than 0.05, we failed to reject the null hypothesis of equal survival distributions.  
+
+Overall, this unadjusted analysis did not provide evidence of a difference in survival between participants assigned to D-penicillamine and those assigned to placebo.  
+
+
+
+## Python vs. R Comparison
+
+For this analysis, R was faster for me to write and was also the implementation I felt more confident using. I have more experience using R for statistical analyses, including survival analysis, so the workflow using `Surv()`, `survfit()`, and `survdiff()` was relatively direct and familiar. In contrast, the Python implementation required me to set up an appropriate environment and install the `lifelines` package before performing the survival analysis. I also needed to manage the Python environment carefully so that the analysis could be reproduced.    
+
+I have slightly more confidence in the R implementation because of my greater familiarity with R and the well-established `survival` package. However, the Python and R implementations produced essentially the same Kaplan–Meier curves and log-rank test result (p = 0.75). The agreement between the two independent implementations increases my confidence in the overall analysis and suggests that the results were not dependent on the choice of software.   
+
+
+

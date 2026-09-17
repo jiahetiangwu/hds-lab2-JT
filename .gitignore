@@ -1,0 +1,5 @@
+.DS_Store
+.virtual_documents/
+anaconda_projects/
+.ipynb_checkpoints/
+__pycache__/

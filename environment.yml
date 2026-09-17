@@ -1,0 +1,11 @@
+name: hds-lab2-JT
+channels:
+  - defaults
+dependencies:
+  - lifelines
+  - pandas
+  - python=3.12
+  - jupyterlab
+  - matplotlib
+  - ipykernel
+prefix: /opt/anaconda3/envs/hds-lab2-JT
